@@ -2,7 +2,10 @@ module github.com/raesene/teisteanas
 
 go 1.18
 
-require k8s.io/api v0.24.3
+require (
+	gopkg.in/yaml.v2 v2.4.0
+	k8s.io/api v0.24.3
+)
 
 require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
@@ -25,7 +28,6 @@ require (
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 	k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
