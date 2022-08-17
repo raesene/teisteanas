@@ -1,4 +1,4 @@
-module github.com/raesene/client_cert_creator
+module github.com/raesene/teisteanas
 
 go 1.18
 
