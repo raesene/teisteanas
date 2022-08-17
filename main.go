@@ -92,6 +92,7 @@ func main() {
 	homedir, _ := os.UserHomeDir()
 	defaultkubeconfig := homedir + "/.kube/config"
 	kubeconfig := flag.String("kubeconfig", defaultkubeconfig, "Kubeconfig file")
+	outputFile := flag.String("output-file", "", "File to output Kubeconfig to")
 	flag.Parse()
 	if *commonName == "" {
 		fmt.Println("ERROR - Username is required")
@@ -99,6 +100,11 @@ func main() {
 		flag.Usage()
 		os.Exit(1)
 	}
+
+	if *outputFile == "" {
+		*outputFile = *commonName + ".config"
+	}
+
 	key, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
 		log.Fatal(fmt.Printf("Error %s", err))
@@ -215,11 +221,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_, err = os.Create(filepath.Join(dir, *commonName))
+	_, err = os.Create(filepath.Join(dir, *outputFile))
 	if err != nil {
 		log.Fatal(err)
 	}
-	file, err := os.OpenFile(*commonName, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+	file, err := os.OpenFile(*outputFile, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 	if err != nil {
 		log.Fatal(err)
 	}
