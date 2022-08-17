@@ -93,6 +93,7 @@ func main() {
 	defaultkubeconfig := homedir + "/.kube/config"
 	kubeconfig := flag.String("kubeconfig", defaultkubeconfig, "Kubeconfig file")
 	outputFile := flag.String("output-file", "", "File to output Kubeconfig to")
+	expirationSeconds := flag.Int("expiration-seconds", 0, "Seconds till the certificate expires")
 	flag.Parse()
 	if *commonName == "" {
 		fmt.Println("ERROR - Username is required")
@@ -143,6 +144,10 @@ func main() {
 			},
 			Request: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: bytes}),
 		},
+	}
+	var expire int32 = int32(*expirationSeconds)
+	if expire != 0 {
+		csr.Spec.ExpirationSeconds = &expire
 	}
 	_, err = clientset.CertificatesV1().CertificateSigningRequests().Create(context.TODO(), csr, v1.CreateOptions{})
 	if err != nil {
