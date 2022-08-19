@@ -14,3 +14,7 @@ There are five command line parameters :-
 * `--output-file` - Filename for the output kubeconfig file. Default is [username].config (OPTIONAL)
 * `--expirationSeconds` - Number of seconds for the certificate to be valid.  If not specified this will take the server's default setting.  (OPTIONAL)
 
+## Known Limitations
+
+- This won't work on EKS clusters because they don't issue certificates for Client authentication.
+- This won't work with clusters earlier than 1.19 as we're using v1 of the CSR API which was issued then.
