@@ -16,5 +16,5 @@ There are five command line parameters :-
 
 ## Known Limitations
 
-- This won't work on EKS clusters because they don't issue certificates for Client authentication.
+- This won't work on EKS clusters because they don't issue certificates for Client authentication. This issue is undocumented but there's a discussion [here](https://github.com/aws/containers-roadmap/issues/1604)
 - This won't work with clusters earlier than 1.19 as we're using v1 of the CSR API which was issued then.
