@@ -24,6 +24,7 @@ import (
 	v1core "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -74,26 +75,25 @@ type KubeConfig struct {
 	Users          Users    `yaml:"users"`
 }
 
-func connectToCluster(kubeconfig string) *kubernetes.Clientset {
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+func initKubeClient() (*kubernetes.Clientset, clientcmd.ClientConfig, error) {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
+	config, err := kubeConfig.ClientConfig()
 	if err != nil {
-		fmt.Println("Error creating config object")
-		log.Fatal(err)
+		log.Fatal("initKubeClient: failed creating ClientConfig with", err)
+		return nil, nil, err
 	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		fmt.Println("Error creating clientset")
-		log.Fatal(err)
+		log.Fatal("initKubeClient: failed creating Clientset with", err)
+		return nil, nil, err
 	}
-	return clientset
+	return clientset, kubeConfig, nil
 }
 
 func main() {
 	commonName := flag.String("username", "", "Username to generate certificate for")
 	org := flag.String("group", "", "Group to assign to certificate")
-	homedir, _ := os.UserHomeDir()
-	defaultkubeconfig := homedir + "/.kube/config"
-	kubeconfig := flag.String("kubeconfig", defaultkubeconfig, "Kubeconfig file")
 	outputFile := flag.String("output-file", "", "File to output Kubeconfig to")
 	expirationSeconds := flag.Int("expiration-seconds", 0, "Seconds till the certificate expires")
 	flag.Parse()
@@ -134,7 +134,11 @@ func main() {
 		log.Fatal(fmt.Printf("Error %s", err))
 	}
 
-	clientset := connectToCluster(*kubeconfig)
+	clientset, config, err := initKubeClient()
+	if err != nil {
+		fmt.Println("Error initializing Kubernetes client")
+		log.Fatal(fmt.Printf("Error %s", err))
+	}
 	csr := &certificates.CertificateSigningRequest{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "tempcsr",
@@ -191,20 +195,20 @@ func main() {
 	}
 	fmt.Printf("Certificate Successfully issued to username %s in group %s , signed by %s, valid until %s\n", issued_cert.Subject.CommonName, issued_group, issued_cert.Issuer.CommonName, issued_cert.NotAfter.String())
 
-	config, _ := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: *kubeconfig},
-		&clientcmd.ConfigOverrides{
-			CurrentContext: "",
-		}).RawConfig()
-	cluster := config.Contexts[config.CurrentContext].Cluster
+	raw, err := config.RawConfig()
+	if err != nil {
+		fmt.Println("error getting raw config")
+		log.Fatal(err)
+	}
+	cluster := raw.Contexts[raw.CurrentContext].Cluster
 
 	kc := &KubeConfig{
 		APIVersion: "v1",
 		Clusters: Clusters{
 			0: {
 				Cluster{
-					base64.StdEncoding.EncodeToString([]byte(config.Clusters[cluster].CertificateAuthorityData)),
-					config.Clusters[cluster].Server,
+					base64.StdEncoding.EncodeToString([]byte(raw.Clusters[cluster].CertificateAuthorityData)),
+					raw.Clusters[cluster].Server,
 				},
 				cluster,
 			},
