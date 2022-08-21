@@ -14,10 +14,11 @@ import (
 	"encoding/pem"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"gopkg.in/yaml.v2"
 	certificates "k8s.io/api/certificates/v1"
@@ -80,12 +81,12 @@ func initKubeClient() (*kubernetes.Clientset, clientcmd.ClientConfig, error) {
 	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
 	config, err := kubeConfig.ClientConfig()
 	if err != nil {
-		log.Fatal("initKubeClient: failed creating ClientConfig with", err)
+		log.Printf("initKubeClient: failed creating ClientConfig with", err)
 		return nil, nil, err
 	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		log.Fatal("initKubeClient: failed creating Clientset with", err)
+		log.Printf("initKubeClient: failed creating Clientset with", err)
 		return nil, nil, err
 	}
 	return clientset, kubeConfig, nil
@@ -110,8 +111,8 @@ func main() {
 
 	key, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
-		fmt.Println("Error Generating key")
-		log.Fatal(fmt.Printf("Error %s", err))
+		log.Print("Error Generating key")
+		log.Printf("Error %s", err)
 	}
 	keyDer := x509.MarshalPKCS1PrivateKey(key)
 
@@ -121,8 +122,8 @@ func main() {
 	}
 	asn1, err := asn1.Marshal(subject.ToRDNSequence())
 	if err != nil {
-		fmt.Println("Error marshalling ASN")
-		log.Fatal(fmt.Printf("Error %s", err))
+		log.Print("Error marshalling ASN")
+		log.Printf("Error %s", err)
 	}
 	csrReq := x509.CertificateRequest{
 		RawSubject:         asn1,
@@ -130,14 +131,14 @@ func main() {
 	}
 	bytes, err := x509.CreateCertificateRequest(rand.Reader, &csrReq, key)
 	if err != nil {
-		fmt.Println("Error Creating Certificate Request")
-		log.Fatal(fmt.Printf("Error %s", err))
+		log.Print("Error Creating Certificate Request")
+		log.Printf("Error %s", err)
 	}
 
 	clientset, config, err := initKubeClient()
 	if err != nil {
 		fmt.Println("Error initializing Kubernetes client")
-		log.Fatal(fmt.Printf("Error %s", err))
+		log.Printf("Error %s", err)
 	}
 	csr := &certificates.CertificateSigningRequest{
 		ObjectMeta: v1.ObjectMeta{
@@ -160,8 +161,8 @@ func main() {
 	}
 	_, err = clientset.CertificatesV1().CertificateSigningRequests().Create(context.TODO(), csr, v1.CreateOptions{})
 	if err != nil {
-		fmt.Println("Error Creating CSR Object. Are you running on a cluste < 1.19? This only works with 1.19+")
-		log.Fatal(fmt.Printf("Error %s", err))
+		log.Print("Error Creating CSR Object. Are you running on a cluste < 1.19? This only works with 1.19+")
+		log.Printf("Error %s", err)
 	}
 	csr.Status.Conditions = append(csr.Status.Conditions, certificates.CertificateSigningRequestCondition{
 		Type:           certificates.CertificateApproved,
@@ -173,21 +174,21 @@ func main() {
 	csr, err = clientset.CertificatesV1().CertificateSigningRequests().UpdateApproval(context.Background(), "tempcsr", csr, v1.UpdateOptions{})
 	if err != nil {
 		fmt.Println("Error Approving Certificate")
-		log.Fatal(fmt.Printf("Error %s", err))
+		log.Printf("Error %s", err)
 	}
 	// Give the API server a couple of seconds to issue the cert.
 	time.Sleep(2 * time.Second)
 	csr, _ = clientset.CertificatesV1().CertificateSigningRequests().Get(context.TODO(), csr.GetName(), v1.GetOptions{})
 	pb, _ := pem.Decode(csr.Status.Certificate)
 	if pb == nil {
-		fmt.Println("Error issuing cert, are you trying this with EKS?")
+		log.Print("Error issuing cert, are you trying this with EKS?")
 		_ = clientset.CertificatesV1().CertificateSigningRequests().Delete(context.TODO(), csr.GetName(), v1.DeleteOptions{})
-		log.Fatal(err)
+		log.Print(err)
 	}
 	issued_cert, err := x509.ParseCertificate(pb.Bytes)
 	if err != nil {
-		fmt.Println("Error Parsing Certificate")
-		log.Fatal(err)
+		log.Print("Error Parsing Certificate")
+		log.Print(err)
 	}
 	issued_group := "none"
 	if issued_cert.Subject.Organization[0] != "" {
@@ -197,8 +198,8 @@ func main() {
 
 	raw, err := config.RawConfig()
 	if err != nil {
-		fmt.Println("error getting raw config")
-		log.Fatal(err)
+		log.Print("error getting raw config")
+		log.Print(err)
 	}
 	cluster := raw.Contexts[raw.CurrentContext].Cluster
 
@@ -237,25 +238,25 @@ func main() {
 
 	dir, err := os.Getwd()
 	if err != nil {
-		fmt.Println("Error Getting working directory")
-		log.Fatal(err)
+		log.Print("Error Getting working directory")
+		log.Print(err)
 	}
 	_, err = os.Create(filepath.Join(dir, *outputFile))
 	if err != nil {
-		fmt.Println("Error Creating output file")
-		log.Fatal(err)
+		log.Print("Error Creating output file")
+		log.Print(err)
 	}
 	file, err := os.OpenFile(*outputFile, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 	if err != nil {
-		fmt.Println("Error opening output file")
-		log.Fatal(err)
+		log.Print("Error opening output file")
+		log.Print(err)
 	}
 	defer file.Close()
 	e := yaml.NewEncoder(file)
 	err = e.Encode(kc)
 	if err != nil {
-		fmt.Println("Error encoding Kubeconfig YAML")
-		log.Fatal(err)
+		log.Print("Error encoding Kubeconfig YAML")
+		log.Print(err)
 	}
 	clientset.CertificatesV1().CertificateSigningRequests().Delete(context.TODO(), csr.GetName(), v1.DeleteOptions{})
 
